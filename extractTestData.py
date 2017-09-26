@@ -3,24 +3,10 @@ import numbers
 import argparse
 
 
-dbname='dbsnp_150'
-schema='dbsnp_chicken_9031'
-id=13677177
-host=''
-user=''
-
-def register_New_Date():
-    # Cast PostgreSQL Date as Python string
-    # Reference:
-    # 1. http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.new_type
-    # 2. http://initd.org/psycopg/docs/advanced.html#type-casting-from-sql-to-python
-    # 1082 is OID for DATE type.
-    NewDate = psycopg2.extensions.new_type((1082,), 'DATE', psycopg2.STRING)
-    psycopg2.extensions.register_type(NewDate)
-
 def connect_db(dbname):
     conn = psycopg2.connect(host=host, user=user, dbname=dbname)
     return conn
+
 
 def execute_query(conn, query):
     cur = conn.cursor()
@@ -34,8 +20,6 @@ def execute_query(conn, query):
         rows.append(row)
     return rows
 
-register_New_Date()
-conn = connect_db(dbname)
 
 def print_row(row, table):
     temp = []
@@ -52,32 +36,60 @@ def print_row(row, table):
             temp.append("'" + str(item) + "'")
     print 'INSERT INTO ' + table + ' VALUES (' + ', '.join(temp) + ');'
 
-# def print_query_result(query_rs):
-#
 
 def execute_direct_query(schema, table, where):
     query = 'SELECT * FROM ' + schema + '.' + table + ' WHERE ' + where
+    print query
     for row in execute_query(conn, query):
         print_row(row, table)
     print ''
 
-def execute_fk_query(schema, table, where, fk_query):
-    for row in execute_query(conn, fk_query)
 
-execute_direct_query(schema, 'snp', 'snp_id='+str(id))
-execute_direct_query(schema, 'b150_snpcontigloc', 'snp_id='+str(id))
-execute_direct_query(schema, 'snpsubsnplink', 'snp_id='+str(id))
-execute_direct_query(schema, 'subsnp', 'snp_id='+str(id))
-execute_direct_query(schema, 'b150_snphgvslink', 'snp_link='+str(id))
+def execute_complex_query(schema, table, query):
+    for row in execute_query(conn, query):
+        print_row(row, table)
+    print ''
 
-# # query_rs = 'SELECT * FROM ' + schema + '.subsnp WHERE snp_id=' + str(id)
-#
-#
-# query_rs = 'SELECT * FROM ' + schema + '.snpsubsnplink WHERE snp_id=' + str(id)
-# for row in execute_query(conn, query_rs):
-#     # temp = []
-#     # temp = [ str(item) for item in line]
-#     print_row(row)
+
+def parse_cli():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--host', help='hostname', required=True)
+    parser.add_argument('-u', '--user', help='user', required=True)
+    parser.add_argument('-d', '--dbName', help='db name', required=True)
+    parser.add_argument('-s', '--schema', help='db schema', required=True)
+    parser.add_argument('-i', '--variantId', help='Variant rs id', required=True)
+
+    args = parser.parse_args()
+    return args
+
+# parse cli args
+args = parse_cli()
+host = args.host
+user = args.user
+dbname = args.dbName
+schema = args.schema
+variant_id = args.variantId
+
+#connect to database and execute queries
+conn = connect_db(dbname)
+
+query_contig = ('select contig.* '
+            	'from dbsnp_chicken_9031.b150_contiginfo contig '
+            	'join dbsnp_chicken_9031.b150_snpcontigloc loc on loc.ctg_id=contig.ctg_id '
+            	'where loc.snp_id = ' + str(variant_id))
+execute_complex_query(schema, 'b150_contiginfo', query_contig)
+
+execute_direct_query(schema, 'snp', 'snp_id='+str(variant_id))
+execute_direct_query(schema, 'b150_snpcontigloc', 'snp_id='+str(variant_id))
+execute_direct_query(schema, 'snpsubsnplink', 'snp_id='+str(variant_id))
+execute_direct_query(schema, 'subsnp', 'snp_id='+str(variant_id))
+execute_direct_query(schema, 'b150_snphgvslink', 'snp_link='+str(variant_id))
+
+query_obsvariation = ('select obsvariation.* '
+                    	'from dbsnp_shared.obsvariation '
+                    	'join dbsnp_chicken_9031.subsnp on subsnp.variation_id = obsvariation.var_id '
+                        'join dbsnp_chicken_9031.snpsubsnplink  on subsnp.subsnp_id = snpsubsnplink.subsnp_id '
+                    	'where snpsubsnplink.snp_id= ' + str(variant_id))
+execute_complex_query('dbsnp_shared', 'obsvariation', query_obsvariation)
 
 conn.close()
-print 'Finished'
