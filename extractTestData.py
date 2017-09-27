@@ -39,7 +39,6 @@ def print_row(row, table):
 
 def execute_direct_query(schema, table, where):
     query = 'SELECT * FROM ' + schema + '.' + table + ' WHERE ' + where
-    print query
     for row in execute_query(conn, query):
         print_row(row, table)
     print ''
@@ -74,21 +73,27 @@ variant_id = args.variantId
 conn = connect_db(dbname)
 
 query_contig = ('select contig.* '
-            	'from dbsnp_chicken_9031.b150_contiginfo contig '
-            	'join dbsnp_chicken_9031.b150_snpcontigloc loc on loc.ctg_id=contig.ctg_id '
+            	'from ' + schema + '.b150_contiginfo contig '
+            	'join ' + schema + '.b150_snpcontigloc loc on loc.ctg_id=contig.ctg_id '
             	'where loc.snp_id = ' + str(variant_id))
 execute_complex_query(schema, 'b150_contiginfo', query_contig)
 
 execute_direct_query(schema, 'snp', 'snp_id='+str(variant_id))
 execute_direct_query(schema, 'b150_snpcontigloc', 'snp_id='+str(variant_id))
 execute_direct_query(schema, 'snpsubsnplink', 'snp_id='+str(variant_id))
-execute_direct_query(schema, 'subsnp', 'snp_id='+str(variant_id))
-execute_direct_query(schema, 'b150_snphgvslink', 'snp_link='+str(variant_id))
 
-query_obsvariation = ('select obsvariation.* '
+query_subsnp = ('select subsnp.* '
+                'from ' + schema + '.subsnp '
+                'join ' + schema + '.snpsubsnplink on subsnp.subsnp_id = snpsubsnplink.subsnp_id '
+                'where snpsubsnplink.snp_id=' + str(variant_id))
+execute_complex_query(schema, 'subsnp', query_subsnp)
+
+# execute_direct_query(schema, 'b150_snphgvslink', 'snp_link='+str(variant_id))
+
+query_obsvariation = ('select DISTINCT(obsvariation.*) '
                     	'from dbsnp_shared.obsvariation '
-                    	'join dbsnp_chicken_9031.subsnp on subsnp.variation_id = obsvariation.var_id '
-                        'join dbsnp_chicken_9031.snpsubsnplink  on subsnp.subsnp_id = snpsubsnplink.subsnp_id '
+                    	'join ' + schema + '.subsnp on subsnp.variation_id = obsvariation.var_id '
+                        'join ' + schema + '.snpsubsnplink  on subsnp.subsnp_id = snpsubsnplink.subsnp_id '
                     	'where snpsubsnplink.snp_id= ' + str(variant_id))
 execute_complex_query('dbsnp_shared', 'obsvariation', query_obsvariation)
 
