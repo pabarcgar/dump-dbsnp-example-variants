@@ -23,6 +23,8 @@ hgvs_t_string,
 hgvs_t_start,
 hgvs_t_stop,
 hgvs_t_orientation,
+genotypes_string,
+freq_info,
 batch_id
 from
 dbsnp_chicken_9031.dbsnp_variant_load_d8c757988871529f37061fa9c79477a5
