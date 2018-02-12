@@ -59,7 +59,7 @@ def print_row(row):
             else:
                 temp.append(str(item))
         elif item is None:
-            temp.append('NULL')
+            temp.append('null')
         else:
             temp.append('"' + str(item) + '"')
     print 'new SubSnpCoreFields(' + ', '.join(temp) + ');'
